@@ -72,6 +72,37 @@ let bytes = cbor::to_vec(&uri).unwrap();
 assert_eq!(bytes[0], 0xd8); // tag(32)
 ```
 
+# Integer map keys (COSE)
+
+Protocols like COSE (RFC 9052) key their maps with integers. A struct
+field whose name — usually set with `#[serde(rename)]` — is a canonical
+decimal integer is encoded as an integer key, and integer keys on the
+wire match struct fields through the same decimal form, so the serde
+field attributes (`rename`, `alias`, ...) work as usual:
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct CoseKey {
+    #[serde(rename = "1")]
+    kty: u8,
+    #[serde(rename = "3", alias = "alg")]
+    alg: i8,
+}
+
+let key = CoseKey { kty: 2, alg: -7 };
+let bytes = cbor::to_vec(&key).unwrap();
+assert_eq!(hex::encode(&bytes), "a201020326"); // {1: 2, 3: -7}
+assert_eq!(cbor::from_slice::<CoseKey>(&bytes).unwrap(), key);
+```
+
+Only canonical decimals qualify (no leading zeros, no `-0`, no `+`
+sign, within the 64-bit CBOR integer range); any other field name is
+encoded as text, and map types like `HashMap<String, _>` are not
+affected. Note that this is an intentional extension over ciborium,
+which encodes such field names as text.
+
 # Allocation-free helpers
 
 Two helpers inspect data without building it: [`validate`] checks that an

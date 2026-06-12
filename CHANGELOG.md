@@ -30,6 +30,12 @@ been removed entirely.
   (RFC 8949 §5.3.1, plus text UTF-8 validity) and `serialized_size`
   computes the exact encoded size of a value without buffering output.
   `collect_str` no longer buffers formatted output either.
+* Integer map keys for structs (COSE, RFC 9052): a field whose
+  (renamed) name is a canonical decimal integer encodes as an integer
+  key, and integer keys match struct fields through the same decimal
+  form on decode — `#[serde(rename = "1", alias = "kty")]` accepts both
+  the integer and the textual key. (Extension over ciborium, which
+  writes such field names as text.)
 * Deterministic encoding via `to_canonical_vec`, `to_canonical_writer` and
   `Value::canonicalize`: map key sorting, duplicate key rejection, bignum
   reduction to preferred form and NaN normalization. Both deterministic key

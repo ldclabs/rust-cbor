@@ -2,7 +2,7 @@
 
 use std::io::Write;
 
-use serde::ser::{self, Serialize as _};
+use serde::ser;
 
 use crate::core::{simple, tag, Encoder, Header};
 use crate::value::KeyOrder;
@@ -56,6 +56,34 @@ impl ser::Error for Error {
     }
 }
 
+// CBOR protocols like COSE (RFC 9052) key their maps with integers. A
+// struct field whose (possibly `#[serde(rename)]`d) name is a canonical
+// decimal integer is therefore encoded as an integer key rather than as
+// text. Only canonical decimals qualify — no leading zeros, no "-0", no
+// sign prefix other than `-`, and the value must fit major type 0 or 1 —
+// so every integer key corresponds to exactly one field name.
+pub(crate) fn integer_field_key(name: &str) -> Option<i128> {
+    let bytes = name.as_bytes();
+    let digits = match bytes.first()? {
+        b'-' => &bytes[1..],
+        b'0'..=b'9' => bytes,
+        _ => return None,
+    };
+
+    match digits {
+        [] => return None,
+        [b'0'] if bytes[0] == b'-' => return None,
+        [b'0', _, ..] => return None,
+        _ => {}
+    }
+
+    if bytes[0] == b'-' {
+        name.parse::<i64>().ok().map(i128::from)
+    } else {
+        name.parse::<u64>().ok().map(i128::from)
+    }
+}
+
 /// A serde serializer that writes CBOR to a [`std::io::Write`].
 pub struct Serializer<W>(Encoder<W>);
 
@@ -70,6 +98,18 @@ impl<W: Write> From<Encoder<W>> for Serializer<W> {
     #[inline]
     fn from(encoder: Encoder<W>) -> Self {
         Self(encoder)
+    }
+}
+
+impl<W: Write> Serializer<W> {
+    // Writes a struct field key: an integer for canonical decimal names
+    // (COSE-style), text otherwise.
+    fn push_field_key(&mut self, key: &'static str) -> Result<(), Error> {
+        match integer_field_key(key) {
+            Some(n) if n >= 0 => Ok(self.0.push(Header::Positive(n as u64))?),
+            Some(n) => Ok(self.0.push(Header::Negative(n as u64 ^ !0))?),
+            None => Ok(self.0.text(key)?),
+        }
     }
 }
 
@@ -526,7 +566,7 @@ impl<W: Write> ser::SerializeStruct for CollectionSerializer<'_, W> {
         key: &'static str,
         value: &U,
     ) -> Result<(), Error> {
-        key.serialize(&mut *self.encoder)?;
+        self.encoder.push_field_key(key)?;
         value.serialize(&mut *self.encoder)
     }
 
@@ -546,7 +586,7 @@ impl<W: Write> ser::SerializeStructVariant for CollectionSerializer<'_, W> {
         key: &'static str,
         value: &U,
     ) -> Result<(), Error> {
-        key.serialize(&mut *self.encoder)?;
+        self.encoder.push_field_key(key)?;
         value.serialize(&mut *self.encoder)
     }
 

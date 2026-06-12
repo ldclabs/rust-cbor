@@ -431,7 +431,18 @@ impl<'de> de::Deserializer<'de> for Deserializer<&Value> {
         self,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.deserialize_str(visitor)
+        let mut value = self.0;
+        while let Value::Tag(.., v) = value {
+            value = v;
+        }
+
+        match value {
+            Value::Text(x) => visitor.visit_str(x),
+            // Integer keys (as used by COSE, RFC 9052) match struct fields
+            // through their canonical decimal form.
+            Value::Integer(x) => visitor.visit_str(&i128::from(*x).to_string()),
+            _ => Err(de::Error::invalid_type(value.into(), &"str or integer")),
+        }
     }
 
     fn deserialize_ignored_any<V: de::Visitor<'de>>(

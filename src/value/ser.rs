@@ -1,6 +1,15 @@
 use serde::ser::{self, SerializeMap as _, SerializeSeq as _, SerializeTupleVariant as _};
 
-use super::{Error, Value};
+use super::{Error, Integer, Value};
+
+// Struct field keys follow the same COSE-style rule as the streaming
+// serializer: canonical decimal names become integer keys.
+fn field_key(key: &'static str) -> Value {
+    match crate::ser::integer_field_key(key) {
+        Some(n) => Value::Integer(Integer::try_from(n).expect("field keys are in range")),
+        None => key.into(),
+    }
+}
 
 impl ser::Serialize for Value {
     #[inline]
@@ -387,7 +396,7 @@ impl ser::SerializeStruct for Serializer<Vec<(Value, Value)>> {
         key: &'static str,
         value: &U,
     ) -> Result<(), Error> {
-        self.0.push((key.into(), Value::serialized(value)?));
+        self.0.push((field_key(key), Value::serialized(value)?));
         Ok(())
     }
 
@@ -407,7 +416,9 @@ impl ser::SerializeStructVariant for Serializer<Named<Vec<(Value, Value)>>> {
         key: &'static str,
         value: &U,
     ) -> Result<(), Error> {
-        self.0.data.push((key.into(), Value::serialized(value)?));
+        self.0
+            .data
+            .push((field_key(key), Value::serialized(value)?));
         Ok(())
     }
 

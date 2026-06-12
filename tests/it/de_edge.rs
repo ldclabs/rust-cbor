@@ -153,9 +153,13 @@ fn identifiers() {
     assert_eq!(de::<F>("a1c1616101").unwrap(), F { a: 1 });
     // Invalid UTF-8 in a field name is a syntax error.
     assert!(matches!(de::<F>("a162fffe01"), Err(Error::Syntax(1))));
-    // Integer keys cannot name fields.
+    // Integer keys name fields through their decimal form (COSE-style);
+    // an unmatched one is simply an unknown field.
     let msg = de::<F>("a10102").unwrap_err().to_string();
-    assert!(msg.contains("str or bytes"), "{msg}");
+    assert!(msg.contains("missing field"), "{msg}");
+    // Float keys cannot name fields at all.
+    let msg = de::<F>("a1f93c0001").unwrap_err().to_string();
+    assert!(msg.contains("str, bytes or an integer"), "{msg}");
 }
 
 #[test]

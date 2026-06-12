@@ -573,7 +573,26 @@ impl<'de, R: Read> de::Deserializer<'de> for &mut Deserializer<R> {
                     visitor.visit_bytes(&self.scratch)
                 }
 
-                header => Err(header.expected("str or bytes")),
+                // Integer keys (as used by COSE, RFC 9052) match struct
+                // fields through their canonical decimal form, pairing
+                // with `#[serde(rename = "1")]` and friends.
+                Header::Positive(x) => {
+                    use std::io::Write as _;
+
+                    self.scratch.clear();
+                    let _ = write!(&mut self.scratch, "{x}");
+                    visitor.visit_str(core::str::from_utf8(&self.scratch).expect("decimal"))
+                }
+
+                Header::Negative(x) => {
+                    use std::io::Write as _;
+
+                    self.scratch.clear();
+                    let _ = write!(&mut self.scratch, "{}", -1 - i128::from(x));
+                    visitor.visit_str(core::str::from_utf8(&self.scratch).expect("decimal"))
+                }
+
+                header => Err(header.expected("str, bytes or an integer")),
             };
         }
     }

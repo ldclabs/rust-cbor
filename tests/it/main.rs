@@ -8,6 +8,7 @@ mod canonical;
 mod de_edge;
 mod diag;
 mod errors;
+mod int_keys;
 mod limits;
 mod rfc8949;
 mod roundtrip;
