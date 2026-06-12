@@ -1,11 +1,11 @@
 [package]
-name = "cbor-derive"
+name = "cbor2-derive"
 version = "0.5.0"  #:version
 authors = [
     "Andrew Gallant <jamslam@gmail.com>",
     "0xZensh <txr1883@gmail.com>",
 ]
-description = "Attribute macro for integer map keys (COSE) with the cbor crate."
+description = "Attribute macro for integer map keys (COSE) with the cbor2 crate."
 homepage = "https://github.com/ldclabs/rust-cbor"
 repository = "https://github.com/ldclabs/rust-cbor"
 keywords = ["cbor", "serde", "cose", "derive"]
